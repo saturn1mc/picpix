@@ -2,15 +2,20 @@
 #include <Qt\qdesktopwidget.h>
 
 #include "PPWidget.h"
+#include "PPMouseFollower.h"
+#include "PPBotFollower.h"
 
 int main(int argc, char* argv[]){
 	QApplication app(argc, argv);
 	QPoint desktopCenter(QApplication::desktop()->availableGeometry().center());
 
-	PPObject* object = new PPObject();
-	
+	PPMouseFollower* mouseFollower = new PPMouseFollower();
+	PPBotFollower* follower = new PPBotFollower(mouseFollower);
+	follower->setPosition(QPointF(400, 400));
+
 	PPEnvironment* environment = new PPEnvironment;
-	environment->addObject(object);
+	environment->addBot(mouseFollower);
+	environment->addBot(follower);
 
 	PPWidget* widget = new PPWidget(environment);
 	widget->launchAnimation();

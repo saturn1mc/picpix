@@ -13,7 +13,7 @@ PPWidget::PPWidget(PPEnvironment* environment) : QWidget(0){
 	setMouseTracking(true);
 }
 
-void PPWidget::paintEvent(QPaintEvent* event){
+void PPWidget::paintEvent(QPaintEvent*){
 	if(isVisible()){
 		QPainter painter(this);
 		painter.setBrush(Qt::white);
