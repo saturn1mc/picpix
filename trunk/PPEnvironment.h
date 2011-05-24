@@ -8,20 +8,33 @@
 
 class PPEnvironment{
 private:
-	QList<PPBot*> _bots;
-
+	QList<PPBot*>* _bots;
 	PPEnvironment(const PPEnvironment&) {}
 
 public:
-	PPEnvironment(void) {}
-
-	virtual ~PPEnvironment(void){
-		for(QList<PPBot*>::iterator botIter = _bots.begin(); botIter != _bots.end(); botIter++){
-			delete(*botIter);
-		}
+	PPEnvironment(void) {
+		_bots = new QList<PPBot*>();
 	}
 
-	void addBot(PPBot* bot){ _bots.append(bot); }
+	virtual ~PPEnvironment(void){
+		for(QList<PPBot*>::iterator botIter = _bots->begin(); botIter != _bots->end(); botIter++){
+			delete(*botIter);
+		}
+
+		_bots->clear();
+
+		delete(_bots);
+	}
+
+	void addBot(PPBot* bot){ 
+		_bots->append(bot); 
+		bot->setEnvironment(this);
+	}
+
+	const QList<PPBot*>* getBots(void) const{
+		return _bots;
+	}
+
 	void setMousePosition(const QPoint& pos);
 
 	void draw(QPainter* painter);

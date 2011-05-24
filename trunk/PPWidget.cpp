@@ -16,7 +16,7 @@ PPWidget::PPWidget(PPEnvironment* environment) : QWidget(0){
 void PPWidget::paintEvent(QPaintEvent*){
 	if(isVisible()){
 		QPainter painter(this);
-		painter.setBrush(Qt::white);
+		painter.fillRect(0,0, DEFAULT_WIDTH, DEFAULT_HEIGHT, QColor(255,255,255));
 
 		_environment->update();
 		_environment->draw(&painter);
