@@ -4,11 +4,11 @@
 #include <Qt\qlist.h>
 #include <Qt\qpainter.h>
 
-#include "PPObject.h"
+#include "PPBot.h"
 
 class PPEnvironment{
 private:
-	QList<PPObject*> _objects;
+	QList<PPBot*> _bots;
 
 	PPEnvironment(const PPEnvironment&) {}
 
@@ -16,12 +16,12 @@ public:
 	PPEnvironment(void) {}
 
 	virtual ~PPEnvironment(void){
-		for(QList<PPObject*>::iterator objIter = _objects.begin(); objIter != _objects.end(); objIter++){
-			delete(*objIter);
+		for(QList<PPBot*>::iterator botIter = _bots.begin(); botIter != _bots.end(); botIter++){
+			delete(*botIter);
 		}
 	}
 
-	void addObject(PPObject* object){ _objects.append(object); }
+	void addBot(PPBot* bot){ _bots.append(bot); }
 	void setMousePosition(const QPoint& pos);
 
 	void draw(QPainter* painter);
