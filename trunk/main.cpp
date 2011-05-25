@@ -15,15 +15,35 @@ int main(int argc, char* argv[]){
 	environment->addBot(mouseFollower);
 
 	PPBotFollower* follower = new PPBotFollower(mouseFollower);
-	follower->setPosition(QPointF(400, 400));
+	follower->setPosition(QPointF(800, 400));
 	environment->addBot(follower);
 
 	follower = new PPBotFollower(mouseFollower);
-	follower->setPosition(QPointF(800, 600));
+	follower->setPosition(QPointF(800, 300));
+	environment->addBot(follower);
+
+	follower = new PPBotFollower(mouseFollower);
+	follower->setPosition(QPointF(800, 200));
+	environment->addBot(follower);
+
+	follower = new PPBotFollower(mouseFollower);
+	follower->setPosition(QPointF(800, 100));
 	environment->addBot(follower);
 
 	follower = new PPBotFollower(mouseFollower);
 	follower->setPosition(QPointF(0, 400));
+	environment->addBot(follower);
+
+	follower = new PPBotFollower(mouseFollower);
+	follower->setPosition(QPointF(0, 300));
+	environment->addBot(follower);
+
+	follower = new PPBotFollower(mouseFollower);
+	follower->setPosition(QPointF(0, 200));
+	environment->addBot(follower);
+
+	follower = new PPBotFollower(mouseFollower);
+	follower->setPosition(QPointF(0, 100));
 	environment->addBot(follower);
 
 	PPWidget* widget = new PPWidget(environment);

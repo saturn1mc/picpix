@@ -40,16 +40,20 @@ protected:
 	virtual void updateForces(void);
 	virtual void computeCorrections(void);
 
+	virtual QVector2D seekSteering(void);
+	virtual QVector2D alignSteering(void);
+	virtual QVector2D separateSteering(void);
+
 	QVector2D truncate(QVector2D v, double max);
 	void drawVector(QPainter* painter, QVector2D* v, const QColor& c, double scale);
 	void drawPoint(QPainter* painter, QPointF* p, const QColor& c, double radius);
 
 
 private:
-	PPBot(const PPBot&) : PI(atan(1.0) * 4.0), _radius(15.0), _slowing_distance(100), _mass(1.0), _max_speed(1.0), _max_force(0.05), _prediction_coeff(60.0) { _environment = 0; }
+	PPBot(const PPBot&) : PI(atan(1.0) * 4.0) {}
 
 public:
-	PPBot(void) : PI(atan(1.0) * 4.0), _radius(15.0), _mass(1.0), _slowing_distance(100), _max_speed(1.0), _max_force(0.05), _prediction_coeff(60.0){
+	PPBot(void) : PI(atan(1.0) * 4.0), _radius(15.0), _mass(1.0), _slowing_distance(100), _max_speed(1.0), _max_force(0.1), _prediction_coeff(60.0){
 		
 		_environment = 0;
 		
