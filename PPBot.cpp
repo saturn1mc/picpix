@@ -6,26 +6,15 @@ void PPBot::updateFuturePosition() {
 } 
 
 void PPBot::updateForces(void){
-	(*_steering) += truncate((*_correction), _max_force);
+	(*_steering) = truncate((*_correction), _max_force);
 	_steering->normalize();
 
-	/* Computing acceleration */
+	// Computing acceleration
 	QVector2D steeringForce(truncate((*_steering), _max_force));
 	QVector2D acceleration(steeringForce);
 	acceleration*=(1.0 / _mass);
 
-	/* Computing velocity */
-	QVector2D vForce(_velocity->toPointF());
-	vForce += acceleration;
-
-	(*_velocity) = truncate(vForce, _speed);
-
-}
-
-void PPBot::computeCorrections(void) {
-	(*_correction) = QVector2D(0,0);
-
-	/* Speed corrections */
+	// Computing velocity
 	QPointF targetOffset = (*_target) - (*_position);
 	double distance = targetOffset.manhattanLength();
 	double rampedSpeed = _max_speed * (distance / _slowing_distance);
@@ -46,51 +35,77 @@ void PPBot::computeCorrections(void) {
 		_speed = clippedSpeed;
 	}
 
-	/* Trajectory corrections*/
+	QVector2D vForce(_velocity->toPointF());
+	vForce += acceleration;
+
+	(*_velocity) = truncate(vForce, _speed);
+}
+
+void PPBot::computeCorrections(void) {
+	(*_correction) = QVector2D(0,0);
+
+	//Alignment withothers
+	(*_correction) += (alignSteering() * 1.5);
+
 	//Separation from others
-	bool separate = false;
+	(*_correction) += (separateSteering() * 80.0);
 
+	//Target seeking
+	(*_correction) += (seekSteering() * 2.0);
+}
+
+QVector2D PPBot::seekSteering(void){
+	QVector2D desiredVelocity(_target->x() - _position->x(), _target->y() - _position->y());
+	return (desiredVelocity - (*_velocity));
+}
+
+QVector2D PPBot::alignSteering(void){
+	QVector2D alignmentSteering(0,0);
+	
 	if(_environment != 0){
-
-		QVector2D separationForce(0,0);
 		double others = 0;
-		double maxForce = 0;
 
 		for(QList<PPBot*>::const_iterator otherIter = _environment->getBots()->constBegin(); otherIter != _environment->getBots()->constEnd(); otherIter++){
 			if((*otherIter) != this){
-				QVector2D sepVect(_position->x() - (*otherIter)->getPosition().x(), _position->y() - (*otherIter)->getPosition().y());
-				double dist = sepVect.length();
+				alignmentSteering += (*otherIter)->getForward();
+				others++;
+			}
+		}
+
+		if(others > 0){
+			alignmentSteering *= (1.0 / others);
+			alignmentSteering -= (*_forward);
+		}
+	}
+
+	return alignmentSteering.normalized();
+}
+
+QVector2D PPBot::separateSteering(void){
+	
+	QVector2D separationSteering(0,0);
+	
+	if(_environment != 0){
+		double others = 0;
+
+		for(QList<PPBot*>::const_iterator otherIter = _environment->getBots()->constBegin(); otherIter != _environment->getBots()->constEnd(); otherIter++){
+			if((*otherIter) != this){
+				QVector2D sepVect((*otherIter)->getPosition().x() - _position->x(), (*otherIter)->getPosition().y() - _position->y());
+				double dist = sepVect.lengthSquared();
 				
-				if(sepVect.length() < (_radius * 4.0)){
+				if(sepVect.length() < (_radius * 3.0)){
 					others++;
-					sepVect.normalize();
-
-					double force = (20.0 / dist);
-					sepVect *= force;
-					separationForce += sepVect;
-
-					maxForce = (force > maxForce ? force : maxForce);
+					separationSteering += (sepVect * (1.0/-dist));
 				}
 			}
 		}
 
 		if(others > 0){
-			separate = true;
-			
-			//separationForce *= (1.0 / others);
-			//separationForce.normalize();
-			truncate(separationForce, maxForce);
-
-			(*_correction) += separationForce;
+			separationSteering /= others;
 		}
 	}
 
-	//Target seeking
-	if(!separate){
-		QVector2D seek(_target->x() - _futurePosition->x(), _target->y() - _futurePosition->y());
-		//seek.normalize();
-		(*_correction) += seek;
-	}
+	return separationSteering.normalized();
 }
 
 QVector2D PPBot::truncate(QVector2D v, double max) {
@@ -142,9 +157,9 @@ void PPBot::draw(QPainter* painter){
 
 void PPBot::update(void){
 	/* Updating forces / trajectories */
+	computeCorrections();
 	updateForces();
 	updateFuturePosition();
-	computeCorrections();
 
 	/* Updating local space */
 	(*_forward) = (*_velocity);
