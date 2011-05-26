@@ -42,7 +42,9 @@ protected:
 
 	virtual QVector2D seekSteering(void);
 	virtual QVector2D alignSteering(void);
-	virtual QVector2D separateSteering(void);
+	virtual QVector2D separativeSteering(void);
+	virtual QVector2D cohesiveSteering(void);
+	virtual QVector2D avoidSteering(void);
 
 	QVector2D truncate(QVector2D v, double max);
 	void drawVector(QPainter* painter, QVector2D* v, const QColor& c, double scale);
@@ -53,10 +55,10 @@ private:
 	PPBot(const PPBot&) : PI(atan(1.0) * 4.0) {}
 
 public:
-	PPBot(void) : PI(atan(1.0) * 4.0), _radius(15.0), _mass(1.0), _slowing_distance(100), _max_speed(1.0), _max_force(0.1), _prediction_coeff(60.0){
-		
+	PPBot(void) : PI(atan(1.0) * 4.0), _radius(15.0), _mass(1.0), _slowing_distance(100), _max_speed(0.5), _max_force(0.1), _prediction_coeff(60.0){
+
 		_environment = 0;
-		
+
 		_speed = 0;
 
 		_position = new QPointF(0, 0);
@@ -85,6 +87,31 @@ public:
 
 	virtual void setMousePosition(const QPoint&){
 		//Nothing
+	}
+
+	bool isAhead (const QPointF& target, double cosThreshold = 0.707) const
+	{
+		QVector2D targetDirection(target.x() - _position->x(), target.y() - _position->y());
+		targetDirection.normalize();
+
+		return QVector2D::dotProduct((*_forward), targetDirection) > cosThreshold;
+	}
+
+	bool isAside (const QVector2D& target, double cosThreshold = 0.707) const
+	{
+		QVector2D targetDirection(target.x() - _position->x(), target.y() - _position->y());
+		targetDirection.normalize();
+
+		double dp = QVector2D::dotProduct((*_forward), targetDirection);
+		return (dp < cosThreshold) && (dp > -cosThreshold);
+	}
+
+	bool isBehind (const QVector2D& target, double cosThreshold = -0.707) const
+	{
+		QVector2D targetDirection(target.x() - _position->x(), target.y() - _position->y());
+		targetDirection.normalize();
+
+		return QVector2D::dotProduct((*_forward), targetDirection) < cosThreshold;
 	}
 
 	void setEnvironment(PPEnvironment* environment){

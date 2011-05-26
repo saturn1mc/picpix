@@ -15,7 +15,38 @@ void PPBot::updateForces(void){
 	acceleration*=(1.0 / _mass);
 
 	// Computing velocity
-	QPointF targetOffset = (*_target) - (*_position);
+	bool braking = false;
+	QPointF brakingPoint;
+
+	for(QList<PPBot*>::const_iterator otherIter = _environment->getBots()->constBegin(); otherIter != _environment->getBots()->constEnd(); otherIter++){
+		if((*otherIter) != this){
+			QVector2D sepVect((*otherIter)->getPosition() - (*_position));
+			double dist = sepVect.length();
+
+			if(dist < (_radius * 2.0)){
+				if(isAhead((*otherIter)->getPosition())){
+					braking = true;
+
+					QVector2D brakingVector(*_forward);
+					brakingVector *= _radius;
+
+					brakingPoint = QPointF((*_position) + brakingVector.toPointF());
+
+					break;
+				}
+			}
+		}
+	}
+
+	QPointF targetOffset;
+
+	if(!braking){
+		targetOffset = (*_target) - (*_position);
+	}
+	else{
+		targetOffset = brakingPoint - (*_position);
+	}
+
 	double distance = targetOffset.manhattanLength();
 	double rampedSpeed = _max_speed * (distance / _slowing_distance);
 
@@ -42,26 +73,32 @@ void PPBot::updateForces(void){
 }
 
 void PPBot::computeCorrections(void) {
-	(*_correction) = QVector2D(0,0);
+	//Obstacle avoidance
+	(*_correction) = avoidSteering();
 
-	//Alignment withothers
-	(*_correction) += (alignSteering() * 1.5);
+	if(_correction->length() == 0){
+		//Alignment with others
+		(*_correction) += (alignSteering() * 1.5);
 
-	//Separation from others
-	(*_correction) += (separateSteering() * 80.0);
+		//Cohesion with others
+		//(*_correction) += (cohesiveSteering() * 30.0);
 
-	//Target seeking
-	(*_correction) += (seekSteering() * 2.0);
+		//Separation from others
+		(*_correction) += (separativeSteering() * 50.0);
+
+		//Target seeking
+		(*_correction) += (seekSteering());
+	}
 }
 
 QVector2D PPBot::seekSteering(void){
-	QVector2D desiredVelocity(_target->x() - _position->x(), _target->y() - _position->y());
+	QVector2D desiredVelocity((*_target) - (*_position));
 	return (desiredVelocity - (*_velocity));
 }
 
 QVector2D PPBot::alignSteering(void){
 	QVector2D alignmentSteering(0,0);
-	
+
 	if(_environment != 0){
 		double others = 0;
 
@@ -81,21 +118,21 @@ QVector2D PPBot::alignSteering(void){
 	return alignmentSteering.normalized();
 }
 
-QVector2D PPBot::separateSteering(void){
-	
+QVector2D PPBot::separativeSteering(void){
+
 	QVector2D separationSteering(0,0);
-	
+
 	if(_environment != 0){
 		double others = 0;
 
 		for(QList<PPBot*>::const_iterator otherIter = _environment->getBots()->constBegin(); otherIter != _environment->getBots()->constEnd(); otherIter++){
 			if((*otherIter) != this){
-				QVector2D sepVect((*otherIter)->getPosition().x() - _position->x(), (*otherIter)->getPosition().y() - _position->y());
+				QVector2D sepVect((*otherIter)->getPosition() - (*_position));
 				double dist = sepVect.lengthSquared();
-				
+
 				if(sepVect.length() < (_radius * 3.0)){
-					others++;
 					separationSteering += (sepVect * (1.0/-dist));
+					others++;
 				}
 			}
 		}
@@ -106,6 +143,85 @@ QVector2D PPBot::separateSteering(void){
 	}
 
 	return separationSteering.normalized();
+}
+
+QVector2D PPBot::cohesiveSteering(void){
+
+	QVector2D cohesionSteering(0,0);
+
+	if(_environment != 0){
+		double others = 0;
+
+		for(QList<PPBot*>::const_iterator otherIter = _environment->getBots()->constBegin(); otherIter != _environment->getBots()->constEnd(); otherIter++){
+			if((*otherIter) != this){
+				QVector2D otherPos((*otherIter)->getPosition().x(), (*otherIter)->getPosition().y());
+				cohesionSteering += otherPos;
+				others++;
+			}
+		}
+
+		if(others > 0){
+			cohesionSteering /= others;
+			QVector2D pos(_position->x(), _position->y());
+			cohesionSteering -= pos;
+		}
+	}
+
+	return cohesionSteering.normalized();
+}
+
+QVector2D PPBot::avoidSteering(void){
+
+	QVector2D avoidanceSteering(0,0);
+
+	if(_environment != 0){
+
+		double obstaclesCount = 0;
+
+		for(QList<PPElement*>::const_iterator elemIter = _environment->getElements()->constBegin(); elemIter != _environment->getElements()->constEnd(); elemIter++){
+			if((*elemIter)->shouldAvoid()){
+				for(QList<QRect*>::iterator boundIter = (*elemIter)->getBounds()->begin(); boundIter!= (*elemIter)->getBounds()->end(); boundIter++){
+
+					if(_sight->boundingRect().intersects(**boundIter)){
+						// minimum distance to obstacle before avoidance is required
+						double minDistanceToCollision = 120.0 * _speed;
+						double minDistanceToCenter = minDistanceToCollision + ((*boundIter)->width() / 2.0);
+
+						// contact distance: sum of radii of obstacle and vehicle
+						double totalRadius = ((*boundIter)->width() / 2.0) + _radius;
+
+						// obstacle center relative to vehicle position
+						QVector2D localOffset((*boundIter)->center() - (*_position));
+
+						// distance along vehicle's forward axis to obstacle's center
+						double forwardComponent = QVector2D::dotProduct(localOffset, *_forward);
+						QVector2D forwardOffset = (forwardComponent * (*_forward));
+
+						// offset from forward axis to obstacle's center
+						QVector2D offForwardOffset = localOffset - forwardOffset;
+
+						// test to see if sphere overlaps with obstacle-free corridor
+						bool inCylinder = offForwardOffset.length() < totalRadius;
+						bool nearby = forwardComponent < minDistanceToCenter;
+						bool inFront = forwardComponent > 0;
+
+						// if all three conditions are met, steer away from sphere center
+						if (inCylinder && nearby && inFront)
+						{
+							obstaclesCount++;
+							avoidanceSteering += (offForwardOffset * -1.0);
+						}
+					}
+				}
+			}
+		}
+
+		if(obstaclesCount > 0){
+			avoidanceSteering *= (1.0/obstaclesCount);
+		}
+	}
+
+	return avoidanceSteering;
 }
 
 QVector2D PPBot::truncate(QVector2D v, double max) {
