@@ -34,60 +34,9 @@ protected:
 	QVector2D* _correction;
 	QVector2D* _velocity;
 
+	QRectF* _boundingBox;
 	QPolygonF* _sight;
-
-	virtual void updateFuturePosition();
-	virtual void updateForces(void);
-	virtual void computeCorrections(void);
-
-	virtual QVector2D seekSteering(void);
-	virtual QVector2D alignSteering(void);
-	virtual QVector2D separativeSteering(void);
-	virtual QVector2D cohesiveSteering(void);
-	virtual QVector2D avoidSteering(void);
-
-	QVector2D truncate(QVector2D v, double max);
-	void drawVector(QPainter* painter, QVector2D* v, const QColor& c, double scale);
-	void drawPoint(QPainter* painter, QPointF* p, const QColor& c, double radius);
-
-
-private:
-	PPBot(const PPBot&) : PI(atan(1.0) * 4.0) {}
-
-public:
-	PPBot(void) : PI(atan(1.0) * 4.0), _radius(15.0), _mass(1.0), _slowing_distance(100), _max_speed(0.5), _max_force(0.1), _prediction_coeff(60.0){
-
-		_environment = 0;
-
-		_speed = 0;
-
-		_position = new QPointF(0, 0);
-		_futurePosition = new QPointF(0, 0);
-		_target = new QPointF(0, 0);
-
-		_forward = new QVector2D(0, 0);
-		_side = new QVector2D(0, 0);
-
-		_steering = new QVector2D(0, 0);
-		_correction = new QVector2D(0, 0);
-		_velocity = new QVector2D(0, 0);
-
-		_sight = new QPolygonF();
-	}
-
-	virtual ~PPBot(void){
-		delete(_position);
-		delete(_futurePosition);
-		delete(_target);
-		delete(_forward);
-		delete(_steering);
-		delete(_correction);
-		delete(_velocity);
-	}
-
-	virtual void setMousePosition(const QPoint&){
-		//Nothing
-	}
+	QPolygonF* _personalSpace;
 
 	bool isAhead (const QPointF& target, double cosThreshold = 0.707) const
 	{
@@ -114,6 +63,67 @@ public:
 		return QVector2D::dotProduct((*_forward), targetDirection) < cosThreshold;
 	}
 
+	virtual void updateFuturePosition();
+	virtual void updateForces(void);
+	virtual void computeCorrections(void);
+
+	virtual QVector2D seekSteering(void);
+	virtual QVector2D fleeSteering(void);
+	virtual QVector2D alignSteering(void);
+	virtual QVector2D separativeSteering(void);
+	virtual QVector2D cohesiveSteering(void);
+	virtual QVector2D avoidSteering(void);
+
+	virtual void updateBoundingBox(void);
+	virtual void updateSight(void);
+	virtual void updatePersonalSpace(void);
+
+	QVector2D truncate(QVector2D v, double max);
+	void drawVector(QPainter* painter, QVector2D* v, const QColor& c, double scale) const;
+	void drawPoint(QPainter* painter, QPointF* p, const QColor& c, double radius) const;
+
+private:
+	PPBot(const PPBot&) : PI(atan(1.0) * 4.0) {}
+
+public:
+	PPBot(void) : PI(atan(1.0) * 4.0), _radius(8.0), _mass(1.0), _slowing_distance(100), _max_speed(1.0), _max_force(0.1), _prediction_coeff(60.0){
+
+		_environment = 0;
+
+		_speed = 0;
+
+		_position = new QPointF(0, 0);
+		_futurePosition = new QPointF(0, 0);
+		_target = new QPointF(0, 0);
+
+		_forward = new QVector2D(0, 0);
+		_side = new QVector2D(0, 0);
+
+		_steering = new QVector2D(0, 0);
+		_correction = new QVector2D(0, 0);
+		_velocity = new QVector2D(0, 0);
+
+		_boundingBox = new QRectF();
+		_sight = new QPolygonF();
+		_personalSpace = new QPolygonF();
+	}
+
+	virtual ~PPBot(void){
+		delete(_position);
+		delete(_futurePosition);
+		delete(_target);
+		delete(_forward);
+		delete(_steering);
+		delete(_correction);
+		delete(_velocity);
+		delete(_sight);
+		delete(_personalSpace);
+	}
+
+	virtual void setMousePosition(const QPoint&){
+		//Nothing
+	}
+
 	void setEnvironment(PPEnvironment* environment){
 		_environment = environment;
 	}
@@ -138,7 +148,19 @@ public:
 		return (*_forward);
 	}
 
-	virtual void draw(QPainter* painter);
+	const QRectF getBoundingBox(void) const{
+		return (*_boundingBox);
+	}
+
+	const QPolygonF getSight(void) const{
+		return (*_sight);
+	}
+
+	const QPolygonF getPersonalSpace(void) const{
+		return (*_personalSpace);
+	}
+
+	virtual void draw(QPainter* painter) const;
 	virtual void update(void);
 };
 

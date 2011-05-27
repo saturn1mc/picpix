@@ -19,7 +19,7 @@ int main(int argc, char* argv[]){
 	for(int x = 0; x < 375; x += 15){
 		for(int y = 0; y < 200; y += 20){
 			if(y == 0 || x == 0 || y == 180 || x == 360){
-				obstacle->addBound(new QRect(x,y,15,20));
+				obstacle->addBound(new QRect(x,y,20,25));
 			}
 		}
 	}
@@ -33,7 +33,7 @@ int main(int argc, char* argv[]){
 	for(int x = 425; x < 800; x += 15){
 		for(int y = 0; y < 200; y += 20){
 			if(y == 0 || x == 425 || y == 180 || x == 785){
-				obstacle->addBound(new QRect(x,y,15,20));
+				obstacle->addBound(new QRect(x,y,20,25));
 			}
 		}
 	}
@@ -41,13 +41,13 @@ int main(int argc, char* argv[]){
 	environment->addElement(obstacle);
 
 
-	PPBot* bot = new PPBot();
+	PPBot* bot = new PPMouseFollower();
 	bot->setPosition(QPoint(400, 300));
 	bot->setTarget(QPoint(400, 0));
 	environment->addBot(bot);
 
-	for(int i =0; i < 20; i++){
-		for(int j = 0; j < 2; j++){
+	for(int i =0; i < 5; i++){
+		for(int j = 0; j < 4; j++){
 			PPBotFollower* follower = new PPBotFollower(bot);
 			environment->addBot(follower);
 			follower->setPosition(QPoint(0 + i*15*2, 500 + (j*100)));
