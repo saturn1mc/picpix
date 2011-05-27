@@ -23,7 +23,7 @@ void PPBot::updateForces(void){
 			QVector2D sepVect((*otherIter)->getPosition() - (*_position));
 			double dist = sepVect.length();
 
-			if(dist < (_radius * 2.0)){
+			if(dist < (_radius * 4.0)){
 				if(isAhead((*otherIter)->getPosition())){
 					braking = true;
 
@@ -81,10 +81,10 @@ void PPBot::computeCorrections(void) {
 		(*_correction) += (alignSteering() * 1.5);
 
 		//Cohesion with others
-		//(*_correction) += (cohesiveSteering() * 30.0);
+		(*_correction) += (cohesiveSteering());
 
 		//Separation from others
-		(*_correction) += (separativeSteering() * 50.0);
+		(*_correction) += (separativeSteering() * 25.0);
 
 		//Target seeking
 		(*_correction) += (seekSteering());
@@ -93,6 +93,11 @@ void PPBot::computeCorrections(void) {
 
 QVector2D PPBot::seekSteering(void){
 	QVector2D desiredVelocity((*_target) - (*_position));
+	return (desiredVelocity - (*_velocity));
+}
+
+QVector2D PPBot::fleeSteering(void){
+	QVector2D desiredVelocity((*_position) - (*_target));
 	return (desiredVelocity - (*_velocity));
 }
 
@@ -184,7 +189,7 @@ QVector2D PPBot::avoidSteering(void){
 
 					if(_sight->boundingRect().intersects(**boundIter)){
 						// minimum distance to obstacle before avoidance is required
-						double minDistanceToCollision = 120.0 * _speed;
+						double minDistanceToCollision = _radius * 2.0;
 						double minDistanceToCenter = minDistanceToCollision + ((*boundIter)->width() / 2.0);
 
 						// contact distance: sum of radii of obstacle and vehicle
@@ -233,27 +238,43 @@ QVector2D PPBot::truncate(QVector2D v, double max) {
 	return vT;   
 } 
 
-void PPBot::drawVector(QPainter* painter, QVector2D* v, const QColor& c, double scale) {
+void PPBot::drawVector(QPainter* painter, QVector2D* v, const QColor& c, double scale) const{
 	painter->setBrush(c);
 	painter->setPen(c);
 	painter->drawLine((int) _position->x(), (int) _position->y(), (int) (_position->x() + (v->x() * scale)), (int) (_position->y() + (v->y() * scale)));
 }
 
 
-void PPBot::drawPoint(QPainter* painter, QPointF* p, const QColor& c, double radius) {
+void PPBot::drawPoint(QPainter* painter, QPointF* p, const QColor& c, double radius) const{
 	painter->setBrush(c);
 	painter->setPen(c);
-	painter->drawEllipse((int) (p->x() - (radius / 2.0)), (int) (p->y() - (radius / 2.0)), (int) radius, (int) radius);
+	painter->drawEllipse((int) (p->x() - radius), (int) (p->y() - radius), (int) (radius * 2.0), (int) (radius * 2.0));
 }
 
-void PPBot::draw(QPainter* painter){
-	//TEST
-	painter->setBrush(Qt::blue);
-	painter->drawEllipse((int) (_position->x() - (_radius / 2.0)), (int) (_position->y() - (_radius / 2.0)), (int) _radius, (int) _radius);
+void PPBot::updateBoundingBox(void){
+	(*_boundingBox) = QRectF(_position->x() - _radius, _position->y() - _radius, _radius * 2.0, _radius * 2.0);
+}
 
-	/* Its sight rectangle*/
-	painter->setBrush(Qt::red);
+void PPBot::updateSight(void){
+	_sight->clear();
+	(*_sight) << QPointF((*_position) + ((*_side) * _radius).toPointF());
+	(*_sight) << QPointF((*_position) + ((*_side) * _radius).toPointF() + ((*_forward) * _prediction_coeff ).toPointF());
+	(*_sight) << QPointF((*_position) - ((*_side) * _radius).toPointF() + ((*_forward) * _prediction_coeff ).toPointF());
+	(*_sight) << QPointF((*_position) - ((*_side) * _radius).toPointF());
+}
+
+void PPBot::updatePersonalSpace(void){
+	//Nothing
+}
+
+void PPBot::draw(QPainter* painter) const{
+	/* Its sight */
+	painter->setBrush(QColor(255,0,0,100));
 	painter->drawPolygon(*_sight);
+
+	/* Its personal space */
+	painter->setBrush(QColor(100,100,100,100));
+	painter->drawPolygon(*_personalSpace);
 
 	/* Its velocity */
 	drawVector(painter, _velocity, QColor(255,0,255), 20.0);
@@ -266,9 +287,22 @@ void PPBot::draw(QPainter* painter){
 	drawVector(painter, _side, QColor(0,0,255), 20.0);
 
 	/* Its future position and the corresponding point on the road */
-	drawPoint(painter, _futurePosition, QColor(0,255,0), 8.0);
-	drawPoint(painter, _target, QColor(255,0,0), 8.0);
-	//END TEST
+	drawPoint(painter, _futurePosition, QColor(0,255,0), 4.0);
+	drawPoint(painter, _target, QColor(255,0,0), 4.0);
+	
+	/* Its aspect */
+	painter->setBrush(Qt::transparent);
+	painter->setPen(Qt::blue);
+	painter->drawEllipse(*_boundingBox);
+	
+	QPolygonF triangle;
+	triangle << (*_position + ((*_side) * _radius).toPointF());
+	triangle << (*_position - ((*_side) * _radius).toPointF());
+	triangle << (*_position + ((*_forward) * _radius).toPointF());
+	
+	painter->setPen(Qt::green);
+	painter->setBrush(Qt::green);
+	painter->drawPolygon(triangle);
 }
 
 void PPBot::update(void){
@@ -287,10 +321,12 @@ void PPBot::update(void){
 	/* Updating position */
 	(*_position) += (_velocity->toPointF());
 
+	/* Updating bounding box */
+	updateBoundingBox();
+
 	/* Updating sight */
-	_sight->clear();
-	(*_sight) << (QPointF(_position->x() + (_side->x() * (_radius / 2.0)), _position->y() + (_side->y() * (_radius / 2.0))));
-	(*_sight) << (QPointF(_position->x() - (_side->x()* (_radius / 2.0)), _position->y() - (_side->y() * (_radius / 2.0))));
-	(*_sight) << (QPointF(_futurePosition->x() - (_side->x() * (_radius / 2.0)), _futurePosition->y() - (_side->y() * (_radius / 2.0))));
-	(*_sight) << (QPointF(_futurePosition->x() + (_side->x() * (_radius / 2.0)), _futurePosition->y() + (_side->y() * (_radius / 2.0))));
+	updateSight();
+
+	/* Updating personal space */
+	updatePersonalSpace();
 }
